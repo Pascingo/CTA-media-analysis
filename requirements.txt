@@ -23,5 +23,5 @@ pyvis>=0.3.2
 matplotlib>=3.7
 seaborn>=0.13
 tqdm>=4.66
-ipython>=8.0
+ipython==7.34.0
 jupyter>=1.0
