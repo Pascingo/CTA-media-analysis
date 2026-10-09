@@ -3,3 +3,10 @@ kaggle_config.py
 venv
 
 __pycache__
+data/ai_governance_cleaned.csv
+data/ai_media_dataset_20260911.csv
+data/entities_spacy.csv
+data/spacy_processed_text.csv
+.DS_Store
+.venv/
+**/.DS_Store
