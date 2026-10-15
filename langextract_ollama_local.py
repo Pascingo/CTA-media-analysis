@@ -1,5 +1,5 @@
 """
-LangExtract with a local Ollama model (optimised for Apple Silicon, e.g. MacBook Pro M4 Pro)
+LangExtract with a local Ollama model
 ==========================================================================================
 
 Runs the same entity/relation extraction as the notebook (01_Stage1_CLT.ipynb), but with
@@ -13,19 +13,15 @@ and knowledge graph cells in the notebook can read it directly.
 ------------------------------------------------------------------------------------------
 1. One-time setup (Terminal)
 ------------------------------------------------------------------------------------------
-    brew install ollama                 # or the Ollama app from ollama.com
+    brew install ollama                 
     pip install langextract pandas tqdm requests
 
-    ollama pull gemma3:4b               # fast default model
-    # optional, better quality but slower:  ollama pull qwen3:8b   /   ollama pull gemma3:12b
+    ollama pull gemma3:4b             
 
 2. Start Ollama with parallel slots (important for speed!)
    Quit the Ollama menu bar app first, then in a separate Terminal window:
-
+   
     OLLAMA_NUM_PARALLEL=4 OLLAMA_FLASH_ATTENTION=1 OLLAMA_KV_CACHE_TYPE=q8_0 ollama serve
-
-   (If you prefer the Ollama app: set these variables with
-    `launchctl setenv OLLAMA_NUM_PARALLEL 4` etc. and restart the app.)
 
 3. Put this file in the same folder as the notebook. The folder "data" must contain
    ai_media_dataset_20260911.csv (the notebook downloads it there).
@@ -36,23 +32,9 @@ Usage
     # Benchmark first: 20 random articles, prints speed and estimated total time
     python langextract_ollama_local.py --limit 20
 
-    # Full run over all df_gov articles (can be stopped with Ctrl+C and resumed any time)
-    caffeinate -i python langextract_ollama_local.py
-
     # Stratified sample: 50 random articles per month (24 months -> 1'200 articles)
     python langextract_ollama_local.py --per-month 50 --output data/langextract_ollama_50pm.jsonl
 
-    # Only the articles of the existing LangExtract sample (comparison with Gemini)
-    python langextract_ollama_local.py --sample-only
-
-    # Faster: only the first 8000 characters per article (= exactly one chunk)
-    python langextract_ollama_local.py --max-chars 8000 --limit 20
-
-    # Other model / more parallel requests
-    python langextract_ollama_local.py --model qwen3:8b --workers 4 --limit 20
-
-"caffeinate -i" prevents the Mac from going to sleep during long runs. Keep the
-MacBook plugged in: on battery, macOS throttles the GPU.
 """
 
 import argparse
@@ -194,7 +176,6 @@ def build_df_gov():
     df["gov_keyword_hits"] = df["cleaned_text"].str.count(pattern)
     df_gov = df[df["gov_keyword_hits"] >= MIN_KEYWORD_HITS].copy()
 
-    # Only keep what we need (saves memory)
     df_gov = df_gov[["title", "date", "url", "content"]]
     print(f"df_gov: {len(df_gov):,} articles (>= {MIN_KEYWORD_HITS} keyword hits)")
     return df_gov
@@ -241,7 +222,6 @@ def extract_article(doc_id, article, args):
 
     text = str(article["content"])
     if args.max_chars:
-        # Only the beginning of the article (char positions stay valid, because it is a prefix)
         text = text[:args.max_chars]
     if not text.strip():
         return record
