@@ -19,9 +19,24 @@ langextract>=1.0
 networkx>=3.0
 pyvis>=0.3.2
 
+# Stage 2: embeddings and text cleaning
+gensim>=4.4              # 4.4+ works with numpy 2
+ftfy>=6.0
+nltk>=3.8
+scipy>=1.11
+
+# Stage 2: fine-tuning (QLoRA, needs an NVIDIA GPU)
+torch>=2.2
+transformers>=4.51       # Qwen3 support
+datasets>=2.18
+peft>=0.10
+bitsandbytes>=0.43
+accelerate>=0.30
+
 # Visualization & notebook
 matplotlib>=3.7
 seaborn>=0.13
 tqdm>=4.66
 ipython==7.34.0
 jupyter>=1.0
+plotly>=5.0
