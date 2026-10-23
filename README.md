@@ -106,4 +106,6 @@ Slow steps are stored in the team's Google Drive (`MyDrive/CTA-media-analysis/st
 
 ## Run the notebook
 
-Colab with a **GPU runtime is required from section 9 on** (Runtime → Change runtime type → L4 or A100). Sections 1–8 also run on CPU. The dataset is downloaded automatically from the same Drive folder as in Stage 1.
+**Google Colab (recommended):** click the badge above and select a **GPU runtime** (Runtime → Change runtime type → L4 or A100). The dataset is downloaded automatically from the same Drive folder as in Stage 1, and missing packages are installed by the notebook.
+
+**Local:** install the packages with `pip install -r requirements.txt` (see Stage 1 for the full setup). Sections 1–8 (cleaning, Word2Vec) run on any machine. Sections 9–11 (QLoRA fine-tuning, evaluation, insights) need an **NVIDIA GPU**, because `bitsandbytes` does not support Apple Silicon or CPU-only machines – on a Mac, run these sections in Colab.
