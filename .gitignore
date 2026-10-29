@@ -10,3 +10,4 @@ data/spacy_processed_text.csv
 .DS_Store
 .venv/
 **/.DS_Store
+.gitattributes
