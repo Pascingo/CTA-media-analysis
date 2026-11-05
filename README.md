@@ -110,6 +110,71 @@ Slow steps are stored in the team's Google Drive (`MyDrive/CTA-media-analysis/st
 
 **Local:** install the packages with `pip install -r requirements.txt` (see Stage 1 for the full setup). Sections 1–8 (cleaning, Word2Vec) run on any machine. Sections 9–11 (QLoRA fine-tuning, evaluation, insights) need an **NVIDIA GPU**, because `bitsandbytes` does not support Apple Silicon or CPU-only machines – on a Mac, run these sections in Colab.
 
-## Stage 3
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]
-(https://colab.research.google.com/github/Pascingo/CTA-media-analysis/blob/main/Stage_3.ipynb)
+---
+
+# Stage 3 – RAG System for Question Answering (Track 1: AI Governance)
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Pascingo/CTA-media-analysis/blob/main/Stage_3.ipynb)
+
+Stage 3 builds and evaluates a retrieval-augmented generation (RAG) system for questions about AI governance (regulation, security, accountability, bias and fairness). It combines passage retrieval with a revised knowledge graph. Before building the RAG system, the notebook addresses the Stage 1 feedback (topic filter too broad, inconsistent relation predicates, co-occurrence graph treated as evidence), because a RAG system can only be as good as its corpus and its graph.
+
+| File | Purpose |
+|---|---|
+| `Stage_3.ipynb` | Main notebook (parts 0–8) |
+
+## Pipeline
+
+0. **Setup** – same settings as Stage 1 (time frame, keywords); the Stage 1 corpus is reconstructed with its original `doc_id`s
+1. **Stage 1 feedback**
+   - tightened topic filter: lexical candidate filter (high recall) + semantic margin against governance / off-topic prototypes (`bge-small-en-v1.5`) → filter `gov_v2`
+   - sentence-based passages (≤ 180 words, one sentence overlap) and exclusion of non-news sources (*builtin*, *skyquestt*, *zbrain*, *huggingface*)
+   - reproducible relation extraction with `qwen3:14b` (Ollama) and an enforced JSON schema: 5 entity types, 9 predicates, automatic checks, quality filters and entity normalisation
+   - manual validation of 50 edges (30 most important + 20 random, Wilson CIs)
+   - knowledge graph v2 with a **factual layer** (162 edges, 211 entities) and a separate, non-factual **co-occurrence layer** (887 edges, passage-level, PMI)
+2. **Q&A dataset** – 295 question–answer pairs (factual, temporal, relational, analytical, comparative) generated with `gemma3:12b`, automatic checks and repairs, manual review in Colab
+3. **Text-only RAG baseline** – built on the course toolbox `anatoolbox`; sparse (BM25), dense (`all-MiniLM-L6-v2`, `bge-small-en-v1.5`) and hybrid retrieval, cross-encoder reranking (`ms-marco-MiniLM-L-6-v2`), answers with `qwen3:8b`; retrieval metrics hit@k, recall@k, MRR
+4. **Graph-enhanced RAG** – entity linking with surface forms, cross-encoder selection of relevant facts, graph passages added to retrieval, graph facts cited as `[G1]…[Gn]` in the prompt
+5. **System evaluation** – text-only vs. graph-enhanced on all 295 questions, LLM judge (`gemma3:12b`) on faithfulness, relevance, context grounding, temporal grounding and correctness; error analysis and robustness check (reviewed vs. unreviewed pairs)
+6. **RAG enhancement** – time-aware retrieval: dates in the question are classified (publication vs. event date) and a publication date is used as a retrieval filter
+7. **Insights** – lessons for trend monitoring in AI governance with RAG and knowledge graphs
+8. **Contributions and AI tools disclosure**
+
+## Knowledge graph v2 schema
+
+- **Entities:** LEGAL_INSTRUMENT, PUBLIC_AUTHORITY, ORGANIZATION, AI_SYSTEM, PERSON
+- **Relations (with fixed type signatures):** PROPOSES, ADOPTS, ENFORCES, INVESTIGATES_OR_SANCTIONS, SUES, SUPPORTS, OPPOSES, COMPLIES_WITH, APPLIES_TO
+- **Co-occurrence layer:** `CO_MENTIONED_WITH` (`factual = False`), only used to expand retrieval, never as evidence in an answer
+
+## Main results
+
+| | hit@5 | MRR |
+|---|---:|---:|
+| Text-only (hybrid · bge-small → rerank) | 0.881 | 0.780 |
+| + graph facts in retrieval | 0.888 | 0.785 |
+| + time-aware publication filter | **0.895** | **0.793** |
+
+- Hybrid retrieval with reranking is the best text configuration; BM25 alone beats dense retrieval.
+- The graph facts make no measurable difference to the answer quality overall (judge scores 4.6–5.0 for both systems).
+- The publication-date filter is the clearest improvement: on the 20 affected questions, hit@5 rises from 0.75 to 0.95 and no unsupported claims remain.
+
+## Caches and data
+
+The Stage 1 input files are downloaded automatically from the same public Google Drive folder as in Stage 1. Results and caches of Stage 3 are stored in the team's Google Drive (`MyDrive/NLP_Projekt/stage3`), so slow steps survive a runtime reset. Each later part starts with a loading cell, so parts 2–7 can run without re-running Part 1.
+
+| File / folder | Content | Saves |
+|---|---|---|
+| `export_articles.parquet`, `export_manifest.json` | Article table with all filter columns (`gov_v2`, `in_rag_corpus`, …) | Topic filter (Part 1) |
+| `rag/rag_passages.parquet` | Search corpus (passages with `id`, `source_id`, `date`, metadata) | Passage splitting |
+| `extraction_cache_ollama.jsonl` | Raw `qwen3:14b` answers of the relation extraction | LLM extraction (GPU) |
+| `relations_normalized.parquet`, `entities_kg.parquet`, `kg_schema_stage3.json` | Filtered and normalised relations, entities, schema | Extraction + filters |
+| `validation/edge_review.csv` | Manual verdicts on the 50 sampled edges | Manual review |
+| `kg_v2/` | `kg_v2_facts.csv`, `kg_v2_cooccurrence.csv`, `kg_v2_entities.csv`, `.graphml` of both layers | Knowledge graph build |
+| `qa/qa_testset.json`, `qa/qa_review.csv` | Final Q&A test set and review decisions | Q&A generation + review |
+| `rag/` embeddings | Passage embeddings (file name contains model and corpus fingerprint) | Embedding |
+| `eval/` | Answers, judgments and results (`rag_answers.jsonl`, `rag_judgments.jsonl`, `time_aware_*`) | Answer generation + judge |
+
+## Run the notebook
+
+**Google Colab (recommended):** click the badge above and select a **GPU runtime** (Runtime → Change runtime type → L4 or T4). The notebook installs the requirements, `anatoolbox` and Ollama itself and pulls the models it needs (`qwen3:14b`, `gemma3:12b`, `qwen3:8b`). It mounts your Google Drive and writes results to `MyDrive/NLP_Projekt/stage3`. A GPU is needed for the LLM steps (relation extraction, Q&A generation, answer generation, judge). Sections 1.5–1.6 and the manual Q&A review (2.5) run on a CPU runtime once the cached files exist.
+
+**Local:** install the packages with `pip install -r requirements.txt` and `pip install "anatoolbox[embeddings] @ git+https://github.com/umagira/anatoolbox"`, install [Ollama](https://ollama.com) and pull the three models above. Remove the Colab-only lines (`from google.colab import ...`, `drive.mount(...)`) and set `STAGE3_FOLDER` to a local folder.
